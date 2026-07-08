@@ -1,0 +1,464 @@
+import { useEffect, useMemo, useState, useCallback } from "react";
+
+
+/**
+ * ==============================================================
+ *  Products dashboard component
+ * ==============================================================
+ *  - React + Vite + Tailwind
+ *  - Fetches from: GET {API_BASE}/products
+ *
+ *  Matches the real Koda Store API response shape:
+ *  {
+ *    success, totalProducts, currentPage, totalPages,
+ *    products: [{
+ *      _id, name, shortDescription, description,
+ *      price, discountPrice, stock, sku,
+ *      images: [{ public_id, url }],
+ *      category, subcategory, brand, tags: [],
+ *      averageRating, numReviews, featured, isActive,
+ *      slug, createdAt, updatedAt, ...
+ *    }]
+ *  }
+ *
+ *  Note: `discountPrice` is the "off" amount shown as "-$X off"
+ *  next to the price (not a second/final price) -- matches the
+ *  dashboard screenshot exactly (e.g. price 333, discountPrice
+ *  6663 -> "$333  -$6663 off").
+ * ==============================================================
+ */
+
+const API_BASE =
+  import.meta.env?.VITE_API_BASE_URL || "https://e-commerce-api-3wara.vercel.app";
+
+// ---- helpers ---------------------------------------------------
+
+function normalizeProduct(p) {
+  const images = (p.images ?? []).map((img) =>
+    typeof img === "string" ? img : img.url
+  );
+
+  const price = Number(p.price ?? 0);
+  const discount = p.discountPrice ? Number(p.discountPrice) : null;
+  const stock = Number(p.stock ?? 0);
+
+  return {
+    id: p._id ?? p.id ?? p.slug,
+    title: p.name ?? p.title ?? "Untitled product",
+    shortDescription: p.shortDescription ?? "",
+    description: p.description ?? p.shortDescription ?? "",
+    images,
+    category: p.category ?? "",
+    subcategory: p.subcategory ?? "",
+    brand: p.brand ?? "",
+    sku: p.sku ?? "",
+    price,
+    discount,
+    tags: p.tags ?? [],
+    stock,
+    featured: Boolean(p.featured),
+    isActive: p.isActive ?? true,
+    averageRating: p.averageRating ?? 0,
+    numReviews: p.numReviews ?? 0,
+    slug: p.slug ?? "",
+  };
+}
+
+function currency(n) {
+  return `$${Number(n).toLocaleString()}`;
+}
+
+// ---- icons (inline, no extra deps) ------------------------------
+
+const Icon = {
+  Box: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M21 8.5 12 4 3 8.5m18 0-9 4.5m9-4.5v7L12 20m0-7.5L3 8.5m9 4.5V20m-9-11.5v7L12 20" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  Star: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8L12 3.5Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  Trend: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M3 17l6-6 4 4 8-8M21 7v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  Cube: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M21 16.5V7.5L12 3 3 7.5v9L12 21l9-4.5Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  Search: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" strokeLinecap="round" />
+    </svg>
+  ),
+  Filter: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+    </svg>
+  ),
+  Plus: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+    </svg>
+  ),
+  Eye: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7Z" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  Edit: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  Bolt: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  Trash: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+};
+
+// ---- stat card ---------------------------------------------------
+
+function StatCard({ icon: IconCmp, value, label, accent }) {
+  return (
+    <div className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accent}`}>
+        <IconCmp className="h-5 w-5" />
+      </div>
+      <div>
+        <div className="text-2xl font-bold text-white leading-none">{value}</div>
+        <div className="mt-1 text-xs text-slate-500">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+// ---- product card --------------------------------------------------
+
+function ProductCard({ product, onView, onEdit, onQuickEdit, onDelete }) {
+  const breadcrumb = [product.category, product.subcategory, product.brand]
+    .filter(Boolean)
+    .map((s) => s.toUpperCase());
+
+  const outOfStock = product.stock <= 0;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+      <div className="relative h-56 w-full bg-slate-800">
+        {product.images[0] ? (
+          <img
+            src={product.images[0]}
+            alt={product.title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-slate-600">
+            <Icon.Box className="h-10 w-10" />
+          </div>
+        )}
+
+        {product.featured && (
+          <span className="absolute left-3 top-3 flex items-center gap-1 rounded-md bg-amber-400 px-2 py-1 text-[11px] font-semibold text-slate-900">
+            <Icon.Star className="h-3 w-3" /> Featured
+          </span>
+        )}
+
+        <span
+          className={`absolute bottom-3 right-3 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+            outOfStock
+              ? "bg-red-500/20 text-red-300"
+              : "bg-emerald-500/20 text-emerald-300"
+          }`}
+        >
+          {outOfStock ? "Out of stock" : `${product.stock} in stock`}
+        </span>
+      </div>
+
+      <div className="p-4">
+        <h3 className="text-base font-semibold text-white">{product.title}</h3>
+        {breadcrumb.length > 0 && (
+          <p className="mt-0.5 text-[11px] font-medium tracking-wide text-cyan-400">
+            {breadcrumb.join(" · ")}
+          </p>
+        )}
+
+        {product.shortDescription && (
+          <p className="mt-2 line-clamp-2 text-sm text-slate-500">
+            {product.shortDescription}
+          </p>
+        )}
+
+        <div className="mt-3 flex items-baseline gap-2">
+          <span className="text-xl font-bold text-white">{currency(product.price)}</span>
+          {product.discount ? (
+            <span className="text-xs font-medium text-emerald-400">
+              -{currency(product.discount)} off
+            </span>
+          ) : null}
+        </div>
+
+        {product.tags?.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {product.tags.map((t) => (
+              <span
+                key={t}
+                className="rounded-md border border-slate-700 bg-slate-800/70 px-2 py-0.5 text-[11px] text-slate-300"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onView(product)}
+              className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              <Icon.Eye className="h-3.5 w-3.5" /> View
+            </button>
+            <button
+              onClick={() => onEdit(product)}
+              className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              <Icon.Edit className="h-3.5 w-3.5" /> Edit
+            </button>
+            <button
+              onClick={() => onQuickEdit(product)}
+              className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              <Icon.Bolt className="h-3.5 w-3.5" /> Quick Edit
+            </button>
+          </div>
+          <button
+            onClick={() => onDelete(product)}
+            className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20"
+          >
+            <Icon.Trash className="h-3.5 w-3.5" /> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- main component --------------------------------------------------
+
+export default function Products({
+  onAddProduct,
+  onView = (p) => console.log("view", p),
+  onEdit = (p) => console.log("edit", p),
+  onQuickEdit = (p) => console.log("quick edit", p),
+  onDelete = (p) => console.log("delete", p),
+}) {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all"); // all | in | out
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/products`);
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      const data = await res.json();
+      console.log("API Data:", data);
+
+      const rawList = Array.isArray(data) ? data : data.products ?? data.data ?? [];
+      console.log("Raw List:", rawList);
+      setProducts(rawList.map(normalizeProduct));
+    } catch (err) {
+      setError(err.message || "Something went wrong while loading products.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const categories = useMemo(
+    () => [...new Set(products.map((p) => p.category).filter(Boolean))],
+    [products]
+  );
+
+  const filtered = useMemo(() => {
+    return products.filter((p) => {
+      const matchesSearch =
+        !search.trim() ||
+        p.title.toLowerCase().includes(search.toLowerCase()) ||
+        p.shortDescription.toLowerCase().includes(search.toLowerCase()) ||
+        p.sku.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
+      const matchesStock =
+        stockFilter === "all" ||
+        (stockFilter === "in" && p.stock > 0) ||
+        (stockFilter === "out" && p.stock <= 0);
+      return matchesSearch && matchesCategory && matchesStock;
+    });
+  }, [products, search, categoryFilter, stockFilter]);
+
+  const stats = useMemo(
+    () => ({
+      total: products.length,
+      featured: products.filter((p) => p.featured).length,
+      inStock: products.filter((p) => p.stock > 0).length,
+      outOfStock: products.filter((p) => p.stock <= 0).length,
+    }),
+    [products]
+  );
+
+  return (
+    <div className="min-h-screen bg-[#0a0e1a] p-6 md:p-8">
+      {/* header */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400">
+            <Icon.Box className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold tracking-wider text-cyan-400">
+              PRODUCT DASHBOARD
+            </p>
+            <h1 className="text-2xl font-bold text-white">Products</h1>
+          </div>
+        </div>
+        <button
+          onClick={onAddProduct}
+          className="flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-cyan-400"
+        >
+          <Icon.Plus className="h-4 w-4" /> Add Product
+        </button>
+      </div>
+
+      {/* stats */}
+      <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard icon={Icon.Box} value={stats.total} label="Total" accent="bg-cyan-500/10 text-cyan-400" />
+        <StatCard icon={Icon.Star} value={stats.featured} label="Featured" accent="bg-amber-400/10 text-amber-400" />
+        <StatCard icon={Icon.Trend} value={stats.inStock} label="In Stock" accent="bg-emerald-500/10 text-emerald-400" />
+        <StatCard icon={Icon.Cube} value={stats.outOfStock} label="Out of Stock" accent="bg-red-500/10 text-red-400" />
+      </div>
+
+      {/* search + filters */}
+      <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-3 md:flex-row md:items-center">
+        <div className="flex flex-1 items-center gap-2 rounded-xl bg-slate-950/60 px-3 py-2.5">
+          <Icon.Search className="h-4 w-4 text-slate-500" />
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && setSearch(searchInput)}
+            placeholder="Search products..."
+            className="w-full bg-transparent text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none"
+          />
+        </div>
+        <button
+          onClick={() => setShowFilters((v) => !v)}
+          className="flex items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700"
+        >
+          <Icon.Filter className="h-4 w-4" /> Filters
+        </button>
+        <button
+          onClick={() => setSearch(searchInput)}
+          className="flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-cyan-400"
+        >
+          <Icon.Search className="h-4 w-4" /> Search
+        </button>
+      </div>
+
+      {showFilters && (
+        <div className="mt-3 flex flex-wrap gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 focus:outline-none"
+          >
+            <option value="all">All categories</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <select
+            value={stockFilter}
+            onChange={(e) => setStockFilter(e.target.value)}
+            className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 focus:outline-none"
+          >
+            <option value="all">All stock</option>
+            <option value="in">In stock</option>
+            <option value="out">Out of stock</option>
+          </select>
+        </div>
+      )}
+
+      {/* content */}
+      <div className="mt-6">
+        {loading && (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-96 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/40"
+              />
+            ))}
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-center text-sm text-red-300">
+            Couldn't load products: {error}
+            <button
+              onClick={fetchProducts}
+              className="mt-3 block w-full rounded-lg bg-red-500/20 py-2 font-medium hover:bg-red-500/30"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && filtered.length === 0 && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-10 text-center text-sm text-slate-500">
+            No products match your search.
+          </div>
+        )}
+
+        {!loading && !error && filtered.length > 0 && (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((p) => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                onView={onView}
+                onEdit={onEdit}
+                onQuickEdit={onQuickEdit}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
