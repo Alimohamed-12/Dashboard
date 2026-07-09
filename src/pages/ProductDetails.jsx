@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-
-const API_BASE = "https://e-commerce-api-3wara.vercel.app";
+import axiosInstance from "../api/axiosInstance";
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -13,10 +12,8 @@ export default function ProductDetails() {
   useEffect(() => {
     async function fetchProduct() {
       try {
-        const res = await fetch(`${API_BASE}/products/${id}`);
-        const data = await res.json();
-
-        setProduct(data.product || data);
+        const res = await axiosInstance.get(`/products/${id}`);
+        setProduct(res.data.product);
       } catch (err) {
         console.log(err);
       } finally {
@@ -56,14 +53,14 @@ export default function ProductDetails() {
         <div>
           <img
             src={product.images?.[0]?.url || product.images?.[0]}
-            alt={product.title}
+            alt={product.name}
             className="w-full h-[450px] object-cover rounded-xl"
           />
         </div>
 
         <div className="space-y-4">
           <h1 className="text-4xl font-bold">
-            {product.title}
+            {product.name}
           </h1>
 
           <p className="text-gray-400">
