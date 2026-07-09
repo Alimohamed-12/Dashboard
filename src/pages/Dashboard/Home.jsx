@@ -5,13 +5,16 @@ import { ShoppingBag, Clock, DollarSign, ShoppingCart, Package, Users } from 'lu
 import TopProducts from './TopProducts';
 import OrderStatus from './OrderStatus';
 
+import RecentOrders from './RecentOrders';
+
+
 export default function Home() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
-    axios.get('https://e-commerce-api-3wara.vercel.app/orders/admin/dashboard', {
+     const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNDNjYmQ0MzMwYTZjN2ZkYWZlOTc1ZiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc4MzU2MTY5NCwiZXhwIjoxNzgzOTkzNjk0fQ.pbcJKo6R3cwfMp-H5wJ95SVDk8KJhR92vV2C2z8N8Og";
+      axios.get('https://e-commerce-api-3wara.vercel.app/orders/admin/dashboard', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then((response) => {
@@ -42,6 +45,9 @@ export default function Home() {
         <OrderStatus dashboard={stats?.dashboard} />
         <TopProducts />
       </div>
+      <div className="mt-8">
+  <RecentOrders />
+</div>
     </div>
   )
 }
