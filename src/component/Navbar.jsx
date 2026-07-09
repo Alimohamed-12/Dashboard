@@ -42,14 +42,15 @@ export default function Header() {
       {item:'My Settings',path:'settings'}
     ]
   return (
-    <Navbar onMenuOpenChange={setIsMenuOpen} >
+    <Navbar onMenuOpenChange={setIsMenuOpen} maxWidth="full" >
 
       <NavbarContent  >
         <NavbarMenuToggle
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           className="sm:hidden"
         />
-        <NavbarBrand className=" flex flex-col">
+        
+        <NavbarBrand className=" flex flex-col items-start gap-0" >
           <p className="font-bold text-inherit text-lg">Koda Dashboard</p>
           <p className=" text-gray-400 text-xs">E-Commerce Admin Panel</p>
         </NavbarBrand>
@@ -96,5 +97,3 @@ export default function Header() {
     </Navbar>
   );
 }
-
-
