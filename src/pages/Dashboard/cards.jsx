@@ -23,7 +23,9 @@ function Cards({ title, value, subtitle, borderColor, iconBgColor, iconColor, Ic
                 </p>
             </div>
 
-            <div className={`p-3 rounded-xl ${iconBgColor} ${iconColor}`}>
+            <div className={`p-3 rounded-xl ${iconBgColor} ${iconColor}
+                transition-transform duration-300
+                hover:rotate-12 hover:scale-110`}>
                 <Icon size={24} />
             </div>
         </div>

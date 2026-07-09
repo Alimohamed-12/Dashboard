@@ -13,23 +13,22 @@ export default function Carts() {
       setLoading(true);
       setError(null);
       const res = await axios.get("/carts/admin");
-      // Expecting: [{ _id, user: { name, email }, items: [{ product: { name, image, price }, quantity }] }]
+      
+
       setCarts(res.data?.carts || res.data || []);
     } catch (err) {
+
       console.error(err);
       setError("Failed to load carts from the API.");
     } finally {
       setLoading(false);
     }
   };
-  const getCartTotal = (cart) =>
-    cart.items?.reduce(
-      (sum, item) => sum + (item.product?.price || 0) * item.quantity,
-      0
-    ) || 0;
+ const getCartTotal = cart => cart.items?.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0) || 0;
+
   return (
     <div className="p-6 space-y-6">
-      {/* Header Card */}
+     
       <div className="w-full rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-8">
         <span className="text-xs font-bold tracking-widest text-cyan-500 dark:text-cyan-400 uppercase">
           Carts
@@ -43,28 +42,28 @@ export default function Carts() {
         </p>
       </div>
 
-      {/* Loading state */}
+     
       {loading && (
         <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 p-10 text-center text-sm text-gray-400">
           Loading carts...
         </div>
       )}
 
-      {/* Error state */}
+      
       {!loading && error && (
         <div className="rounded-2xl border border-dashed border-red-200 dark:border-red-800 p-10 text-center text-sm text-red-500">
           {error}
         </div>
       )}
 
-      {/* Empty state */}
+    
       {!loading && !error && carts.length === 0 && (
         <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 p-10 text-center text-sm text-gray-400">
           No carts returned from the API.
         </div>
       )}
 
-      {/* Carts list */}
+      
       {!loading && !error && carts.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {carts.map((cart) => (
@@ -72,7 +71,7 @@ export default function Carts() {
               key={cart._id}
               className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-6"
             >
-              {/* Cart owner */}
+              
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-9 h-9 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center">
@@ -91,7 +90,7 @@ export default function Carts() {
                 </span>
               </div>
 
-              {/* Products in cart */}
+              
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
                 {cart.items?.length ? (
                   cart.items.map((item, idx) => (
@@ -130,7 +129,7 @@ export default function Carts() {
                 )}
               </div>
 
-              {/* Total */}
+              
               <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100 dark:border-gray-800">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   Total
