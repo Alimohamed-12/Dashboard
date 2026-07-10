@@ -33,7 +33,13 @@ export default function Home() {
       </div>
 
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-        <Cards title="Total Orders" value={stats?.dashboard?.orders?.total|| 0} subtitle="All orders received" Icon={ShoppingBag} borderColor="border-[#2dd4bf]" iconBgColor="bg-[#ccfbf1]" iconColor="text-[#0d9488]" />
+        <Cards title="Total Orders" 
+        value={stats?.dashboard?.orders?.total|| 0} 
+        subtitle="All orders received" Icon={ShoppingBag}
+        borderColor="border-[#2dd4bf]" 
+        iconBgColor="bg-[#ccfbf1]" 
+        iconColor="text-[#0d9488]" />
+
         <Cards title="Pending Orders" value={stats?.dashboard?.orders?.pending || 0} subtitle="Awaiting action" Icon={Clock} borderColor="border-[#fb923c]" iconBgColor="bg-[#ffedd5]" iconColor="text-[#ea580c]" />
         <Cards title="Revenue" value={`$${stats?.dashboard?.revenue?.total || 0}`} subtitle="Total gross revenue" Icon={DollarSign} borderColor="border-[#f43f5e]" iconBgColor="bg-[#ffe4e6]" iconColor="text-[#e11d48]" />
         <Cards title="This Month" value={`$${stats?.dashboard?.revenue?.thisMonth || 0}`} subtitle="Monthly sales target" Icon={ShoppingCart} borderColor="border-[#38bdf8]" iconBgColor="bg-[#e0f2fe]" iconColor="text-[#0284c7]" />
@@ -41,13 +47,19 @@ export default function Home() {
         <Cards title="Users" value={stats?.dashboard?.totalCustomers || stats?.dashboard?.usersCount || 0} subtitle="Registered customers" Icon={Users} borderColor="border-[#64748b]" iconBgColor="bg-[#f1f5f9]" iconColor="text-[#475569]" />
       </div>
 
+
+      {/* ------------------------------------------------------------------------------------------ */}
+
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
         <OrderStatus dashboard={stats?.dashboard} />
         <TopProducts />
       </div>
-      <div className="mt-8">
-  <RecentOrders />
-</div>
+
+
+      {/* --------------------------------------------------------------------------------------- */}
+      {/* <div className="mt-8"> */}
+        <RecentOrders stats={stats} />
+    {/* </div> */}
     </div>
   )
 }

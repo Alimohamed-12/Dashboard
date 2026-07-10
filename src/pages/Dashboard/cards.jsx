@@ -5,8 +5,8 @@ function Cards({ title, value, subtitle, borderColor, iconBgColor, iconColor, Ic
         <div
             className={`bg-white rounded-2xl p-6 shadow-sm border-t-4 ${borderColor}
             flex justify-between items-start
-            transition-all duration-300
-            hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02]
+            transition-all duration-500
+            hover:shadow-xl hover:-translate-y-1  hover:scale-[1.02]
             cursor-pointer`}
         >
             <div>
