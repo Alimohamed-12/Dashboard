@@ -11,8 +11,6 @@ import Settings from './pages/settings/Settings';
 import Orders from './pages/orders/Orders';
 import Products from "./component/Products";
 import ProductDetails from "./pages/ProductDetails";
-
-// Wrapper for the Products component to handle actions/navigation
 function ProductsPage() {
   const navigate = useNavigate();
 
