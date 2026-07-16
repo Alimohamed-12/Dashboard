@@ -1,47 +1,28 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-
-
-/**
- * ==============================================================
- *  Products dashboard component
- * ==============================================================
- *  - React + Vite + Tailwind
- *  - Fetches from: GET {API_BASE}/products
- *
- *  Matches the real Koda Store API response shape:
- *  {
- *    success, totalProducts, currentPage, totalPages,
- *    products: [{
- *      _id, name, shortDescription, description,
- *      price, discountPrice, stock, sku,
- *      images: [{ public_id, url }],
- *      category, subcategory, brand, tags: [],
- *      averageRating, numReviews, featured, isActive,
- *      slug, createdAt, updatedAt, ...
- *    }]
- *  }
- *
- *  Note: `discountPrice` is the "off" amount shown as "-$X off"
- *  next to the price (not a second/final price) -- matches the
- *  dashboard screenshot exactly (e.g. price 333, discountPrice
- *  6663 -> "$333  -$6663 off").
- * ==============================================================
- */
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import QuickEditModal from "./QuickEditModal";
 
 const API_BASE =
   import.meta.env?.VITE_API_BASE_URL || "https://e-commerce-api-3wara.vercel.app";
 
-// ---- helpers ---------------------------------------------------
-
+const api = axios.create({
+  baseURL: API_BASE,
+});
+const DEV_FALLBACK_TOKEN =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNDNjYmQ0MzMwYTZjN2ZkYWZlOTc1ZiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc4MzU2MTY5NCwiZXhwIjoxNzgzOTkzNjk0fQ.pbcJKo6R3cwfMp-H5wJ95SVDk8KJhR92vV2C2z8N8Og";
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token") || DEV_FALLBACK_TOKEN;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 function normalizeProduct(p) {
   const images = (p.images ?? []).map((img) =>
     typeof img === "string" ? img : img.url
   );
-
   const price = Number(p.price ?? 0);
   const discount = p.discountPrice ? Number(p.discountPrice) : null;
   const stock = Number(p.stock ?? 0);
-
   return {
     id: p._id ?? p.id ?? p.slug,
     title: p.name ?? p.title ?? "Untitled product",
@@ -67,8 +48,6 @@ function normalizeProduct(p) {
 function currency(n) {
   return `$${Number(n).toLocaleString()}`;
 }
-
-// ---- icons (inline, no extra deps) ------------------------------
 
 const Icon = {
   Box: (props) => (
@@ -130,25 +109,21 @@ const Icon = {
   ),
 };
 
-// ---- stat card ---------------------------------------------------
 
 function StatCard({ icon: IconCmp, value, label, accent }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+    <div className="flex items-center gap-4 rounded-2xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-5">
       <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accent}`}>
         <IconCmp className="h-5 w-5" />
       </div>
       <div>
-        <div className="text-2xl font-bold text-white leading-none">{value}</div>
-        <div className="mt-1 text-xs text-slate-500">{label}</div>
+        <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{value}</div>
+        <div className="mt-1 text-xs text-gray-400">{label}</div>
       </div>
     </div>
   );
 }
-
-// ---- product card --------------------------------------------------
-
-function ProductCard({ product, onView, onEdit, onQuickEdit, onDelete }) {
+function ProductCard({ product, onView, onEdit, onQuickEdit, onDelete, deleting }) {
   const breadcrumb = [product.category, product.subcategory, product.brand]
     .filter(Boolean)
     .map((s) => s.toUpperCase());
@@ -156,8 +131,8 @@ function ProductCard({ product, onView, onEdit, onQuickEdit, onDelete }) {
   const outOfStock = product.stock <= 0;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
-      <div className="relative h-56 w-full bg-slate-800">
+    <div className="overflow-hidden rounded-2xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+      <div className="relative h-56 w-full bg-gray-100 dark:bg-slate-800">
         {product.images[0] ? (
           <img
             src={product.images[0]}
@@ -166,7 +141,7 @@ function ProductCard({ product, onView, onEdit, onQuickEdit, onDelete }) {
             loading="lazy"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-600">
+          <div className="flex h-full w-full items-center justify-center text-gray-300 dark:text-slate-600">
             <Icon.Box className="h-10 w-10" />
           </div>
         )}
@@ -180,8 +155,8 @@ function ProductCard({ product, onView, onEdit, onQuickEdit, onDelete }) {
         <span
           className={`absolute bottom-3 right-3 rounded-full px-2.5 py-1 text-[11px] font-medium ${
             outOfStock
-              ? "bg-red-500/20 text-red-300"
-              : "bg-emerald-500/20 text-emerald-300"
+              ? "bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400"
+              : "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400"
           }`}
         >
           {outOfStock ? "Out of stock" : `${product.stock} in stock`}
@@ -189,23 +164,23 @@ function ProductCard({ product, onView, onEdit, onQuickEdit, onDelete }) {
       </div>
 
       <div className="p-4">
-        <h3 className="text-base font-semibold text-white">{product.title}</h3>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white">{product.title}</h3>
         {breadcrumb.length > 0 && (
-          <p className="mt-0.5 text-[11px] font-medium tracking-wide text-cyan-400">
+          <p className="mt-0.5 text-[11px] font-medium tracking-wide text-cyan-500 dark:text-cyan-400">
             {breadcrumb.join(" · ")}
           </p>
         )}
 
         {product.shortDescription && (
-          <p className="mt-2 line-clamp-2 text-sm text-slate-500">
+          <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-slate-400">
             {product.shortDescription}
           </p>
         )}
 
         <div className="mt-3 flex items-baseline gap-2">
-          <span className="text-xl font-bold text-white">{currency(product.price)}</span>
+          <span className="text-xl font-bold text-gray-900 dark:text-white">{currency(product.price)}</span>
           {product.discount ? (
-            <span className="text-xs font-medium text-emerald-400">
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
               -{currency(product.discount)} off
             </span>
           ) : null}
@@ -216,66 +191,70 @@ function ProductCard({ product, onView, onEdit, onQuickEdit, onDelete }) {
             {product.tags.map((t) => (
               <span
                 key={t}
-                className="rounded-md border border-slate-700 bg-slate-800/70 px-2 py-0.5 text-[11px] text-slate-300"
+                className="rounded-md border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 px-2 py-0.5 text-[11px] text-gray-600 dark:text-slate-300"
               >
                 {t}
               </span>
             ))}
           </div>
         )}
-
-        <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3">
-          <div className="flex items-center gap-2">
+        <div className="mt-4 border-t border-gray-100 dark:border-slate-800 pt-3">
+          <div className="grid grid-cols-3 gap-1.5">
             <button
               onClick={() => onView(product)}
-              className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
+              className="flex items-center justify-center gap-1 rounded-lg bg-gray-100 dark:bg-slate-800 px-2 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700"
             >
-              <Icon.Eye className="h-3.5 w-3.5" /> View
+              <Icon.Eye className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">View</span>
             </button>
             <button
               onClick={() => onEdit(product)}
-              className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
+              className="flex items-center justify-center gap-1 rounded-lg bg-gray-100 dark:bg-slate-800 px-2 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700"
             >
-              <Icon.Edit className="h-3.5 w-3.5" /> Edit
+              <Icon.Edit className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Edit</span>
             </button>
             <button
               onClick={() => onQuickEdit(product)}
-              className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
+              className="flex items-center justify-center gap-1 rounded-lg bg-gray-100 dark:bg-slate-800 px-2 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700"
             >
-              <Icon.Bolt className="h-3.5 w-3.5" /> Quick Edit
+              <Icon.Bolt className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Quick</span>
             </button>
           </div>
           <button
             onClick={() => onDelete(product)}
-            className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20"
+            disabled={deleting}
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50"
           >
-            <Icon.Trash className="h-3.5 w-3.5" /> Delete
+            <Icon.Trash className="h-3.5 w-3.5" /> {deleting ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
     </div>
   );
 }
+export default function Products() {
+  const navigate = useNavigate();
 
-// ---- main component --------------------------------------------------
-
-export default function Products({
-  onAddProduct,
-  onView = (p) => console.log("view", p),
-  onEdit = (p) => console.log("edit", p),
-  onQuickEdit = (p) => console.log("quick edit", p),
-  onDelete = (p) => console.log("delete", p),
-}) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [quickEditProductId, setQuickEditProductId] = useState(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [stockFilter, setStockFilter] = useState("all"); // all | in | out
-
+  const [stockFilter, setStockFilter] = useState("all"); 
+  const handleAddProduct = useCallback(
+  () => navigate("/addproducts"),
+  [navigate]
+  );
+  const handleView = useCallback((p) => navigate(`/products/${p.id}`), [navigate]);
+  const handleEdit = useCallback((p) => navigate(`/products/edit/${p.id}`), [navigate]);
+  const handleQuickEdit = useCallback((p) => setQuickEditProductId(p.id), []);
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -283,10 +262,7 @@ export default function Products({
       const res = await fetch(`${API_BASE}/products`);
       if (!res.ok) throw new Error(`Request failed (${res.status})`);
       const data = await res.json();
-      console.log("API Data:", data);
-
       const rawList = Array.isArray(data) ? data : data.products ?? data.data ?? [];
-      console.log("Raw List:", rawList);
       setProducts(rawList.map(normalizeProduct));
     } catch (err) {
       setError(err.message || "Something went wrong while loading products.");
@@ -298,6 +274,27 @@ export default function Products({
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  const handleDelete = useCallback(async (product) => {
+    const confirmed = window.confirm(
+      `Delete "${product.title}"? This can't be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(product.id);
+    try {
+      await api.delete(`/products/${product.id}`);
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+    } catch (err) {
+      console.error("Delete failed:", err.response?.data || err);
+      alert(
+        err.response?.data?.message ||
+          "Failed to delete this product. Please try again."
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }, []);
 
   const categories = useMemo(
     () => [...new Set(products.map((p) => p.category).filter(Boolean))],
@@ -331,23 +328,23 @@ export default function Products({
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a] p-6 md:p-8">
+    <div className="min-h-screen bg-transparent p-6 md:p-8">
       {/* header */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-6 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-950/40 text-cyan-500 dark:text-cyan-400">
             <Icon.Box className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold tracking-wider text-cyan-400">
+            <p className="text-xs font-semibold tracking-wider text-cyan-500 dark:text-cyan-400">
               PRODUCT DASHBOARD
             </p>
-            <h1 className="text-2xl font-bold text-white">Products</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Products</h1>
           </div>
         </div>
         <button
-          onClick={onAddProduct}
-          className="flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-cyan-400"
+          onClick={handleAddProduct}
+          className="flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-400"
         >
           <Icon.Plus className="h-4 w-4" /> Add Product
         </button>
@@ -355,44 +352,44 @@ export default function Products({
 
       {/* stats */}
       <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard icon={Icon.Box} value={stats.total} label="Total" accent="bg-cyan-500/10 text-cyan-400" />
-        <StatCard icon={Icon.Star} value={stats.featured} label="Featured" accent="bg-amber-400/10 text-amber-400" />
-        <StatCard icon={Icon.Trend} value={stats.inStock} label="In Stock" accent="bg-emerald-500/10 text-emerald-400" />
-        <StatCard icon={Icon.Cube} value={stats.outOfStock} label="Out of Stock" accent="bg-red-500/10 text-red-400" />
+        <StatCard icon={Icon.Box} value={stats.total} label="Total" accent="bg-cyan-50 dark:bg-cyan-950/40 text-cyan-500 dark:text-cyan-400" />
+        <StatCard icon={Icon.Star} value={stats.featured} label="Featured" accent="bg-amber-50 dark:bg-amber-950/40 text-amber-500 dark:text-amber-400" />
+        <StatCard icon={Icon.Trend} value={stats.inStock} label="In Stock" accent="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 dark:text-emerald-400" />
+        <StatCard icon={Icon.Cube} value={stats.outOfStock} label="Out of Stock" accent="bg-red-50 dark:bg-red-950/40 text-red-500 dark:text-red-400" />
       </div>
 
       {/* search + filters */}
-      <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-3 md:flex-row md:items-center">
-        <div className="flex flex-1 items-center gap-2 rounded-xl bg-slate-950/60 px-3 py-2.5">
-          <Icon.Search className="h-4 w-4 text-slate-500" />
+      <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-3 md:flex-row md:items-center">
+        <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 dark:bg-slate-800 px-3 py-2.5">
+          <Icon.Search className="h-4 w-4 text-gray-400" />
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && setSearch(searchInput)}
             placeholder="Search products..."
-            className="w-full bg-transparent text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none"
+            className="w-full bg-transparent text-sm text-gray-700 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none"
           />
         </div>
         <button
           onClick={() => setShowFilters((v) => !v)}
-          className="flex items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700"
+          className="flex items-center justify-center gap-2 rounded-xl bg-gray-100 dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700"
         >
           <Icon.Filter className="h-4 w-4" /> Filters
         </button>
         <button
           onClick={() => setSearch(searchInput)}
-          className="flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-cyan-400"
+          className="flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-400"
         >
           <Icon.Search className="h-4 w-4" /> Search
         </button>
       </div>
 
       {showFilters && (
-        <div className="mt-3 flex flex-wrap gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+        <div className="mt-3 flex flex-wrap gap-3 rounded-2xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-4">
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 focus:outline-none"
+            className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-gray-700 dark:text-white focus:outline-none"
           >
             <option value="all">All categories</option>
             {categories.map((c) => (
@@ -404,7 +401,7 @@ export default function Products({
           <select
             value={stockFilter}
             onChange={(e) => setStockFilter(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 focus:outline-none"
+            className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-gray-700 dark:text-white focus:outline-none"
           >
             <option value="all">All stock</option>
             <option value="in">In stock</option>
@@ -420,18 +417,18 @@ export default function Products({
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="h-96 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/40"
+                className="h-96 animate-pulse rounded-2xl border border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800"
               />
             ))}
           </div>
         )}
 
         {!loading && error && (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-center text-sm text-red-300">
+          <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-6 text-center text-sm text-red-600 dark:text-red-400">
             Couldn't load products: {error}
             <button
               onClick={fetchProducts}
-              className="mt-3 block w-full rounded-lg bg-red-500/20 py-2 font-medium hover:bg-red-500/30"
+              className="mt-3 block w-full rounded-lg bg-red-100 dark:bg-red-950/50 py-2 font-medium hover:bg-red-200 dark:hover:bg-red-950/70"
             >
               Try again
             </button>
@@ -439,7 +436,7 @@ export default function Products({
         )}
 
         {!loading && !error && filtered.length === 0 && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-10 text-center text-sm text-slate-500">
+          <div className="rounded-2xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-10 text-center text-sm text-gray-400">
             No products match your search.
           </div>
         )}
@@ -450,15 +447,24 @@ export default function Products({
               <ProductCard
                 key={p.id}
                 product={p}
-                onView={onView}
-                onEdit={onEdit}
-                onQuickEdit={onQuickEdit}
-                onDelete={onDelete}
+                onView={handleView}
+                onEdit={handleEdit}
+                onQuickEdit={handleQuickEdit}
+                onDelete={handleDelete}
+                deleting={deletingId === p.id}
               />
             ))}
           </div>
         )}
       </div>
+
+      {quickEditProductId && (
+        <QuickEditModal
+          productId={quickEditProductId}
+          onClose={() => setQuickEditProductId(null)}
+          onSaved={() => fetchProducts()}
+        />
+      )}
     </div>
   );
 }

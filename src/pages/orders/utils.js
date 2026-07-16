@@ -1,6 +1,3 @@
-// utils.js
-//   (استخراج الليست، تنسيق البيانات، قوائم الخيارات)
-
 export function extractList(payload) {
   // لو الـ payload نفسه Array رجعه زي ما هو
   if (Array.isArray(payload)) return payload

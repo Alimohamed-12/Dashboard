@@ -1,23 +1,43 @@
-import { useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-import { ArrowLeft, ImagePlus, Package, X, Plus, Loader2, CheckCircle2 } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  ImagePlus,
+  Package,
+  X,
+  Plus,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 
 const api = axios.create({
   baseURL: "https://e-commerce-api-3wara.vercel.app",
 });
 
 const DEV_FALLBACK_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNDNjYmQ0MzMwYTZjN2ZkYWZlOTc1ZiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc0MzY5NzY4NywiZXhwIjoxNzg0MTI5NjfQ.-QGbSF3VUf6y80VcN5w909MqauW90439-M42W0GqV7Y";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNDNjYmQ0MzMwYTZjN2ZkYWZlOTc1ZiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc4MzU2MTY5NCwiZXhwIjoxNzgzOTkzNjk0fQ.pbcJKo6R3cwfMp-H5wJ95SVDk8KJhR92vV2C2z8N8Og";
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token") || DEV_FALLBACK_TOKEN;
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
   return config;
 });
 
-export default function AddProduct({ onBack, onCreated }) {
-  const [images, setImages] = useState([]);
+export default function EditProduct() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [loadingProduct, setLoadingProduct] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImages, setNewImages] = useState([]);
   const [imagesError, setImagesError] = useState("");
   const [dragActive, setDragActive] = useState(false);
 
@@ -65,119 +85,217 @@ export default function AddProduct({ onBack, onCreated }) {
     "other",
   ];
 
+  useEffect(() => {
+    let active = true;
+
+    async function fetchProduct() {
+      try {
+        setLoadingProduct(true);
+        setLoadError("");
+
+        const { data } = await api.get(`/products/${id}`);
+        const product = data.product || data.data || data;
+
+        if (!product || typeof product !== "object") {
+          throw new Error("Product was not found.");
+        }
+
+        if (!active) return;
+
+        reset({
+          name: product.name || "",
+          shortDescription: product.shortDescription || "",
+          description: product.description || "",
+          price: product.price ?? "",
+          discountPrice: product.discountPrice ?? "",
+          stock: product.stock ?? "",
+          sku: product.sku || "",
+          category: product.category || "electronics",
+          subcategory: product.subcategory || "",
+          brand: product.brand || "",
+          featured: Boolean(product.featured),
+          isActive: product.isActive ?? true,
+        });
+
+        setTags(Array.isArray(product.tags) ? product.tags : []);
+        setExistingImages(
+          (product.images || [])
+            .map((img) => (typeof img === "string" ? img : img?.url))
+            .filter(Boolean)
+        );
+      } catch (err) {
+        console.error("Load product failed:", err.response?.data || err);
+
+        if (active) {
+          setLoadError(
+            err.response?.data?.message ||
+              err.message ||
+              "Failed to load this product."
+          );
+        }
+      } finally {
+        if (active) {
+          setLoadingProduct(false);
+        }
+      }
+    }
+
+    fetchProduct();
+
+    return () => {
+      active = false;
+    };
+  }, [id, reset]);
+
+  useEffect(() => {
+    return () => {
+      newImages.forEach((image) => URL.revokeObjectURL(image.preview));
+    };
+  }, [newImages]);
+
   const addFiles = (fileList) => {
-    const files = Array.from(fileList).filter((f) =>
-      ["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(f.type)
+    const files = Array.from(fileList).filter((file) =>
+      ["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file.type)
     );
+
     const mapped = files.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
     }));
-    setImages((prev) => [...prev, ...mapped]);
-    if (mapped.length) setImagesError("");
+
+    setNewImages((previous) => [...previous, ...mapped]);
+
+    if (mapped.length > 0) {
+      setImagesError("");
+    }
   };
 
-  const handleFileInput = (e) => {
-    if (e.target.files?.length) addFiles(e.target.files);
-    e.target.value = "";
+  const handleFileInput = (event) => {
+    if (event.target.files?.length) {
+      addFiles(event.target.files);
+    }
+
+    event.target.value = "";
   };
 
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
+  const handleDrop = (event) => {
+    event.preventDefault();
     setDragActive(false);
-    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
-  }, []);
 
-  const removeImage = (index) => {
-    setImages((prev) => {
-      const next = [...prev];
-      URL.revokeObjectURL(next[index].preview);
-      next.splice(index, 1);
-      return next;
+    if (event.dataTransfer.files?.length) {
+      addFiles(event.dataTransfer.files);
+    }
+  };
+
+  const removeExistingImage = (index) => {
+    setExistingImages((previous) =>
+      previous.filter((_, currentIndex) => currentIndex !== index)
+    );
+  };
+
+  const removeNewImage = (index) => {
+    setNewImages((previous) => {
+      const imageToRemove = previous[index];
+
+      if (imageToRemove?.preview) {
+        URL.revokeObjectURL(imageToRemove.preview);
+      }
+
+      return previous.filter((_, currentIndex) => currentIndex !== index);
     });
   };
 
   const addTag = () => {
     const value = tagInput.trim();
+
     if (value && !tags.includes(value)) {
-      setTags((prev) => [...prev, value]);
+      setTags((previous) => [...previous, value]);
     }
+
     setTagInput("");
   };
 
   const removeTag = (tag) => {
-    setTags((prev) => prev.filter((t) => t !== tag));
+    setTags((previous) => previous.filter((item) => item !== tag));
   };
 
-  const handleTagKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
+  const handleTagKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
       addTag();
     }
   };
 
-  const resetForm = () => {
-    images.forEach((img) => URL.revokeObjectURL(img.preview));
-    setImages([]);
-    setTags([]);
-    setImagesError("");
-    reset();
-  };
-
-  const onSubmit = async (data) => {
+  const onSubmit = async (formData) => {
     setApiError("");
+    setImagesError("");
 
-    if (images.length === 0) {
-      setImagesError("Upload at least one image");
+    if (existingImages.length + newImages.length === 0) {
+      setImagesError("Keep at least one image.");
       return;
     }
 
     setSubmitting(true);
-    try {
-      const fd = new FormData();
-      fd.append("name", data.name.trim());
-      fd.append("shortDescription", data.shortDescription.trim());
-      fd.append("description", data.description.trim());
-      fd.append("price", data.price);
-      if (data.discountPrice) fd.append("discountPrice", data.discountPrice);
-      fd.append("stock", data.stock);
-      fd.append("sku", data.sku.trim());
-      fd.append("category", data.category);
-      if (data.subcategory) fd.append("subcategory", data.subcategory.trim());
-      fd.append("brand", data.brand.trim());
-      fd.append("featured", data.featured);
-      fd.append("isActive", data.isActive);
-      tags.forEach((tag) => fd.append("tags", tag));
-      images.forEach((img) => fd.append("images", img.file));
 
-      const { data: res } = await api.post("/products", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
+    try {
+      const data = new FormData();
+
+      data.append("name", formData.name.trim());
+      data.append("shortDescription", formData.shortDescription.trim());
+      data.append("description", formData.description.trim());
+      data.append("price", formData.price);
+      data.append("stock", formData.stock);
+      data.append("sku", formData.sku.trim());
+      data.append("category", formData.category);
+      data.append("brand", formData.brand.trim());
+      data.append("featured", String(formData.featured));
+      data.append("isActive", String(formData.isActive));
+
+      if (formData.discountPrice) {
+        data.append("discountPrice", formData.discountPrice);
+      }
+
+      if (formData.subcategory) {
+        data.append("subcategory", formData.subcategory.trim());
+      }
+
+      data.append("tags", JSON.stringify(tags));
+
+      newImages.forEach((image) => {
+        data.append("images", image.file);
       });
 
+      await api.patch(`/products/update/${id}`, data);
+
       setSuccess(true);
-      onCreated?.(res.product);
 
       setTimeout(() => {
-        setSuccess(false);
-        resetForm();
-      }, 1800);
+        navigate("/products");
+      }, 1200);
     } catch (err) {
-      const resData = err.response?.data;
-      let message = resData?.message || "Failed to create product. Please try again.";
-      const details = resData?.errors || resData?.details;
+      const responseData = err.response?.data;
+      let message =
+        responseData?.message ||
+        "Failed to update product. Please try again.";
+
+      const details = responseData?.errors || responseData?.details;
+
       if (details) {
-        const list = Array.isArray(details)
-          ? details.map((d) => d.message || d.msg || JSON.stringify(d)).join(" — ")
-          : typeof details === "object"
-          ? Object.entries(details)
-              .map(([field, msg]) => `${field}: ${msg}`)
+        const detailText = Array.isArray(details)
+          ? details
+              .map((detail) => detail.message || detail.msg || JSON.stringify(detail))
               .join(" — ")
-          : String(details);
-        message = `${message}: ${list}`;
+          : typeof details === "object"
+            ? Object.entries(details)
+                .map(([field, value]) => `${field}: ${value}`)
+                .join(" — ")
+            : String(details);
+
+        message = `${message}: ${detailText}`;
       }
 
       setApiError(message);
-      console.error("Product create failed:", resData || err);
+      console.error("Product update failed:", responseData || err);
     } finally {
       setSubmitting(false);
     }
@@ -190,14 +308,43 @@ export default function AddProduct({ onBack, onCreated }) {
         : "border-slate-200 bg-slate-50 focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-800 dark:focus:bg-slate-800 dark:focus:ring-cyan-900/40"
     }`;
 
-  return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 md:px-6 dark:bg-slate-950 dark:text-white">
-      <div className="mx-auto max-w-6xl">
-        {/* Hero */}
-        <section className="mb-6 overflow-hidden rounded-3xl bg-slate-950 p-6 text-white shadow-xl md:p-8 dark:bg-black dark:ring-1 dark:ring-slate-800">
+  if (loadingProduct) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-transparent px-4 py-10">
+        <div className="mx-auto flex min-h-[280px] max-w-xl flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-slate-500 dark:text-slate-400 shadow-sm">
+          <Loader2 className="animate-spin text-cyan-500" size={32} />
+          <p className="text-sm font-medium">Loading product...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-transparent px-4 py-10">
+        <div className="mx-auto max-w-xl rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/40 p-6 text-center shadow-sm">
+          <p className="text-sm font-medium text-red-700 dark:text-red-300">{loadError}</p>
+
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => navigate("/products")}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 dark:bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:hover:bg-slate-600"
+          >
+            <ArrowLeft size={16} />
+            Back to products
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-transparent px-4 py-6 text-slate-900 dark:text-white md:px-6">
+      <div className="mx-auto max-w-6xl">
+        <section className="mb-6 overflow-hidden rounded-3xl bg-slate-950 dark:bg-black p-6 text-white shadow-xl md:p-8 dark:ring-1 dark:ring-slate-800">
+          <button
+            type="button"
+            onClick={() => navigate("/products")}
             className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
           >
             <ArrowLeft size={16} />
@@ -212,15 +359,15 @@ export default function AddProduct({ onBack, onCreated }) {
 
               <div>
                 <p className="mb-1 text-xs font-bold tracking-[0.2em] text-cyan-300">
-                  CREATE PRODUCT
+                  EDIT PRODUCT
                 </p>
 
                 <h1 className="text-2xl font-extrabold text-white md:text-3xl">
-                  Launch a polished product entry
+                  Update this product entry
                 </h1>
 
                 <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                  Add products with validation, image previews, multi-upload support, and smooth UX.
+                  Change details, update images, and save your changes.
                 </p>
               </div>
             </div>
@@ -230,59 +377,84 @@ export default function AddProduct({ onBack, onCreated }) {
                 READY
               </p>
               <p className="mt-1 text-sm text-slate-200">
-                Create, validate, and save with one click.
+                Update and save with one click.
               </p>
             </div>
           </div>
         </section>
 
         {apiError && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-950/40 dark:text-red-300">
+          <div className="mb-6 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
             {apiError}
           </div>
         )}
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Gallery */}
-            <section className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <section className="h-fit rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
               <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-500 dark:bg-cyan-950/40 dark:text-cyan-400">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-950/40 text-cyan-500 dark:text-cyan-400">
                   <ImagePlus size={20} />
                 </div>
 
                 <div>
                   <h2 className="font-bold text-slate-900 dark:text-white">Gallery</h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Upload multiple images and preview instantly.
+                    Existing images plus any new ones you add.
                   </p>
                 </div>
               </div>
 
-              {images.length > 0 && (
+              {(existingImages.length > 0 || newImages.length > 0) && (
                 <div className="mb-4 grid grid-cols-2 gap-3">
-                  {images.map((img, i) => (
+                  {existingImages.map((url, index) => (
                     <div
-                      key={i}
+                      key={`${url}-${index}`}
                       className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700"
                     >
                       <img
-                        src={img.preview}
-                        alt={`Image ${i + 1}`}
-                        className="h-32 w-full object-cover"
+                        src={url}
+                        alt={`Current product ${index + 1}`}
+                        className="h-36 w-full object-cover"
                       />
 
                       <button
-                        onClick={() => removeImage(i)}
                         type="button"
+                        onClick={() => removeExistingImage(index)}
                         className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black"
-                        aria-label="Remove image"
+                        aria-label="Remove current image"
                       >
-                        <X size={13} />
+                        <X size={14} />
                       </button>
 
                       <span className="absolute inset-x-0 bottom-0 bg-black/55 py-1 text-center text-[10px] font-semibold tracking-widest text-white">
-                        IMAGE {i + 1}
+                        CURRENT
+                      </span>
+                    </div>
+                  ))}
+
+                  {newImages.map((image, index) => (
+                    <div
+                      key={`${image.preview}-${index}`}
+                      className="relative overflow-hidden rounded-xl border border-cyan-200 dark:border-cyan-800"
+                    >
+                      <img
+                        src={image.preview}
+                        alt={`New product ${index + 1}`}
+                        className="h-36 w-full object-cover"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removeNewImage(index)}
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black"
+                        aria-label="Remove new image"
+                      >
+                        <X size={14} />
+                      </button>
+
+                      <span className="absolute inset-x-0 bottom-0 bg-cyan-600/90 py-1 text-center text-[10px] font-semibold tracking-widest text-white">
+                        NEW
                       </span>
                     </div>
                   ))}
@@ -290,8 +462,8 @@ export default function AddProduct({ onBack, onCreated }) {
               )}
 
               <label
-                onDragOver={(e) => {
-                  e.preventDefault();
+                onDragOver={(event) => {
+                  event.preventDefault();
                   setDragActive(true);
                 }}
                 onDragLeave={() => setDragActive(false)}
@@ -302,12 +474,12 @@ export default function AddProduct({ onBack, onCreated }) {
                     : "border-cyan-200 bg-cyan-50/50 hover:border-cyan-400 hover:bg-cyan-50 dark:border-cyan-900 dark:bg-cyan-950/10 dark:hover:border-cyan-600 dark:hover:bg-cyan-950/20"
                 }`}
               >
-                <ImagePlus className="text-cyan-500 dark:text-cyan-400" size={22} />
+                <ImagePlus className="text-cyan-500 dark:text-cyan-400" size={24} />
                 <span className="text-sm font-semibold text-slate-800 dark:text-white">
                   Upload images
                 </span>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  PNG, JPG, WEBP • multiple files supported
+                  PNG, JPG or WEBP — multiple files supported
                 </span>
 
                 <input
@@ -322,33 +494,25 @@ export default function AddProduct({ onBack, onCreated }) {
               {imagesError && (
                 <p className="mt-2 text-xs text-red-500 dark:text-red-400">{imagesError}</p>
               )}
-
-              <div className="mt-4 flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/30">
-                <span className="mt-0.5 text-emerald-500">✦</span>
-                <div>
-                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                    Senior UX
-                  </p>
-                  <p className="mt-0.5 text-xs text-emerald-700/80 dark:text-emerald-400/80">
-                    Optimized product creation experience with responsive design and smooth interactions.
-                  </p>
-                </div>
-              </div>
             </section>
 
-            {/* Form */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
               <div className="mb-5">
                 <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Product Name
                 </label>
+
                 <input
                   className={inputClass("name")}
-                  placeholder="iPhone 16 Pro"
-                  {...register("name", { required: "Product name is required" })}
+                  {...register("name", {
+                    required: "Product name is required",
+                  })}
                 />
+
                 {errors.name && (
-                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.name.message}</p>
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                    {errors.name.message}
+                  </p>
                 )}
               </div>
 
@@ -356,14 +520,18 @@ export default function AddProduct({ onBack, onCreated }) {
                 <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Short Description
                 </label>
+
                 <input
                   className={inputClass("shortDescription")}
-                  placeholder="Minimum 10 characters"
                   {...register("shortDescription", {
                     required: "Short description is required",
-                    minLength: { value: 10, message: "Minimum 10 characters" },
+                    minLength: {
+                      value: 10,
+                      message: "Minimum 10 characters",
+                    },
                   })}
                 />
+
                 {errors.shortDescription && (
                   <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                     {errors.shortDescription.message}
@@ -375,15 +543,19 @@ export default function AddProduct({ onBack, onCreated }) {
                 <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Description
                 </label>
+
                 <textarea
                   rows={4}
                   className={`${inputClass("description")} resize-y`}
-                  placeholder="Minimum 20 characters"
                   {...register("description", {
                     required: "Description is required",
-                    minLength: { value: 20, message: "Minimum 20 characters" },
+                    minLength: {
+                      value: 20,
+                      message: "Minimum 20 characters",
+                    },
                   })}
                 />
+
                 {errors.description && (
                   <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                     {errors.description.message}
@@ -396,18 +568,24 @@ export default function AddProduct({ onBack, onCreated }) {
                   <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Price
                   </label>
+
                   <input
                     type="number"
                     step="0.01"
                     className={inputClass("price")}
-                    placeholder="0.00"
                     {...register("price", {
                       required: "Enter a valid price",
-                      min: { value: 0.01, message: "Enter a valid price" },
+                      min: {
+                        value: 0.01,
+                        message: "Enter a valid price",
+                      },
                     })}
                   />
+
                   {errors.price && (
-                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.price.message}</p>
+                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                      {errors.price.message}
+                    </p>
                   )}
                 </div>
 
@@ -415,11 +593,11 @@ export default function AddProduct({ onBack, onCreated }) {
                   <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Discount Price
                   </label>
+
                   <input
                     type="number"
                     step="0.01"
                     className={inputClass("discountPrice")}
-                    placeholder="0.00"
                     {...register("discountPrice", {
                       validate: (value) =>
                         !value ||
@@ -427,6 +605,7 @@ export default function AddProduct({ onBack, onCreated }) {
                         "Must be less than price",
                     })}
                   />
+
                   {errors.discountPrice && (
                     <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                       {errors.discountPrice.message}
@@ -440,17 +619,23 @@ export default function AddProduct({ onBack, onCreated }) {
                   <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Stock
                   </label>
+
                   <input
                     type="number"
                     className={inputClass("stock")}
-                    placeholder="0"
                     {...register("stock", {
                       required: "Enter valid stock quantity",
-                      min: { value: 0, message: "Enter valid stock quantity" },
+                      min: {
+                        value: 0,
+                        message: "Enter valid stock quantity",
+                      },
                     })}
                   />
+
                   {errors.stock && (
-                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.stock.message}</p>
+                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                      {errors.stock.message}
+                    </p>
                   )}
                 </div>
 
@@ -458,13 +643,18 @@ export default function AddProduct({ onBack, onCreated }) {
                   <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     SKU
                   </label>
+
                   <input
                     className={inputClass("sku")}
-                    placeholder="WH-001"
-                    {...register("sku", { required: "SKU is required" })}
+                    {...register("sku", {
+                      required: "SKU is required",
+                    })}
                   />
+
                   {errors.sku && (
-                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.sku.message}</p>
+                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                      {errors.sku.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -474,13 +664,16 @@ export default function AddProduct({ onBack, onCreated }) {
                   <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Category
                   </label>
+
                   <select
                     className={inputClass("category")}
-                    {...register("category", { required: "Category is required" })}
+                    {...register("category", {
+                      required: "Category is required",
+                    })}
                   >
-                    {categories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
                       </option>
                     ))}
                   </select>
@@ -490,9 +683,9 @@ export default function AddProduct({ onBack, onCreated }) {
                   <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Subcategory
                   </label>
+
                   <input
                     className={inputClass("subcategory")}
-                    placeholder="audio"
                     {...register("subcategory")}
                   />
                 </div>
@@ -502,13 +695,18 @@ export default function AddProduct({ onBack, onCreated }) {
                 <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Brand
                 </label>
+
                 <input
                   className={inputClass("brand")}
-                  placeholder="Sony"
-                  {...register("brand", { required: "Brand is required" })}
+                  {...register("brand", {
+                    required: "Brand is required",
+                  })}
                 />
+
                 {errors.brand && (
-                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.brand.message}</p>
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                    {errors.brand.message}
+                  </p>
                 )}
               </div>
 
@@ -516,18 +714,20 @@ export default function AddProduct({ onBack, onCreated }) {
                 <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Tags
                 </label>
+
                 <div className="flex gap-2">
                   <input
                     className={inputClass("tag")}
                     placeholder="Type a tag and press +"
                     value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
+                    onChange={(event) => setTagInput(event.target.value)}
                     onKeyDown={handleTagKeyDown}
                   />
+
                   <button
-                    onClick={addTag}
                     type="button"
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-white transition hover:bg-slate-950 dark:bg-slate-700 dark:hover:bg-slate-600"
+                    onClick={addTag}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-800 dark:bg-slate-700 text-white transition hover:bg-slate-950 dark:hover:bg-slate-600"
                     aria-label="Add tag"
                   >
                     <Plus size={18} />
@@ -539,12 +739,13 @@ export default function AddProduct({ onBack, onCreated }) {
                     {tags.map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-medium text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
+                        className="inline-flex items-center gap-2 rounded-full bg-cyan-50 dark:bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-700 dark:text-cyan-300"
                       >
                         {tag}
+
                         <button
-                          onClick={() => removeTag(tag)}
                           type="button"
+                          onClick={() => removeTag(tag)}
                           className="text-cyan-700 hover:text-cyan-950 dark:text-cyan-300 dark:hover:text-cyan-100"
                           aria-label={`Remove ${tag}`}
                         >
@@ -562,26 +763,33 @@ export default function AddProduct({ onBack, onCreated }) {
 
               <div className="mb-6 flex flex-wrap gap-5">
                 <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <input type="checkbox" className="h-4 w-4 accent-cyan-500" {...register("featured")} />
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-cyan-500"
+                    {...register("featured")}
+                  />
                   Featured
                 </label>
+
                 <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <input type="checkbox" className="h-4 w-4 accent-cyan-500" {...register("isActive")} />
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-cyan-500"
+                    {...register("isActive")}
+                  />
                   Active
                 </label>
               </div>
 
-              <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end dark:border-slate-800">
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-100 dark:border-slate-800 pt-5 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  onClick={() => {
-                    resetForm();
-                    onBack?.();
-                  }}
-                  className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  onClick={() => navigate("/products")}
+                  className="rounded-xl bg-slate-100 dark:bg-slate-800 px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-700"
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   disabled={submitting}
@@ -589,7 +797,12 @@ export default function AddProduct({ onBack, onCreated }) {
                 >
                   {submitting && <Loader2 size={16} className="animate-spin" />}
                   {success && <CheckCircle2 size={16} />}
-                  {submitting ? "Creating..." : success ? "Created!" : "Create Product"}
+
+                  {submitting
+                    ? "Saving..."
+                    : success
+                      ? "Saved!"
+                      : "Save Changes"}
                 </button>
               </div>
             </section>

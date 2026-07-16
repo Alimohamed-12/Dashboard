@@ -7,15 +7,22 @@ import OrderStatus from './OrderStatus';
 
 import RecentOrders from './RecentOrders';
 
+function getToken() {
+  return (
+    localStorage.getItem('token') ||
+    localStorage.getItem('authToken') ||
+    localStorage.getItem('accessToken') ||
+    ''
+  );
+}
 
 export default function Home() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-     const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNDNjYmQ0MzMwYTZjN2ZkYWZlOTc1ZiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc4MzU2MTY5NCwiZXhwIjoxNzgzOTkzNjk0fQ.pbcJKo6R3cwfMp-H5wJ95SVDk8KJhR92vV2C2z8N8Og";
       axios.get('https://e-commerce-api-3wara.vercel.app/orders/admin/dashboard', {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: { 'Authorization': `Bearer ${getToken()}` }
     })
     .then((response) => {
       setStats(response.data);
@@ -25,11 +32,11 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="py-8 pr-8 pl-4 bg-gray-50/50 min-h-screen">
-      <div className='bg-white rounded-xl p-4 mt-2 mb-8 shadow-md'>
-        <h2 className='text-cyan-400 text-xs tracking-[3px] uppercase'>Admin overview</h2>
-        <h1 className='text-2xl text-gray-800 mt-2 font-semibold'>Real-time commerce health</h1>
-        <p className='text-gray-500 mt-2'>Monitor your storefront with AI-style clarity and live API metrics.</p>
+    <div className="py-8 pr-8 pl-4 bg-gray-50/50 dark:bg-gray-900 min-h-screen">
+      <div className='bg-white dark:bg-gray-800 rounded-xl p-4 mt-2 mb-8 shadow-md'>
+        <h2 className='text-cyan-400 dark:text-cyan-300 text-xs tracking-[3px] uppercase'>Admin overview</h2>
+        <h1 className='text-2xl text-gray-800 dark:text-white mt-2 font-semibold'>Real-time commerce health</h1>
+        <p className='text-gray-500 dark:text-gray-400 mt-2'>Monitor your storefront with AI-style clarity and live API metrics.</p>
       </div>
 
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>

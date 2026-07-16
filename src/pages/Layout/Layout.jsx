@@ -1,7 +1,7 @@
 import React from 'react'
 import { Outlet } from 'react-router-dom'
-import Header from '../../component/Navbar'
-import Sidebar from '../../component/Sidebar'
+import Header from '../component/Navbar'
+import Sidebar from '../component/Sidebar'
 import { Navbar } from '@heroui/react'
 export default function Layout() {
   return (
@@ -19,11 +19,11 @@ export default function Layout() {
              </div>
           </div> */}
 
-          <div className=' md:grid md:grid-cols-12'>
-            <div className='md:col-span-3'>
+          <div className=' md:flex'>
+            <div className='md:w-[315px] md:shrink-0'>
               <Sidebar/>
             </div>
-            <div className='md:col-span-9'>
+            <div className='md:flex-1 md:min-w-0'>
               <Header/>
               <Outlet/>
             </div>

@@ -20,8 +20,9 @@ function Orders() {
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
+  
+  const token = localStorage.getItem('token'); 
 
-  const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNDNjYmQ0MzMwYTZjN2ZkYWZlOTc1ZiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc4MzU2MTY5NCwiZXhwIjoxNzgzOTkzNjk0fQ.pbcJKo6R3cwfMp-H5wJ95SVDk8KJhR92vV2C2z8N8Og";
 
   const fetchOrders = () => {
     setLoading(true);
@@ -33,14 +34,14 @@ function Orders() {
       }
     })
     .then((response) => {
-      console.log("الداتا اللي جات من الباك إند:", response.data);
+      console.log("The data received from the back-end:", response.data);
       const list = extractList(response.data).map(normalizeOrder);
       setOrdersList(list);
       setTotalCount(extractTotalCount(response.data, list.length));
     })
     .catch((error) => {
       console.error("Error fetching orders:", error);
-      setError(error.response?.data?.message || error.message || 'تعذر تحميل الطلبات، حاول تاني');
+      setError(error.response?.data?.message || error.message || 'Unable to load requests; please try again.');
     })
     .finally(() => {
       setLoading(false);
@@ -85,7 +86,7 @@ function Orders() {
       setOrdersList((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: newStatus } : o)));
     })
     .catch((error) => {
-      alert(error.response?.data?.message || error.message || 'تعذر تحديث حالة الطلب');
+      alert(error.response?.data?.message || error.message || 'Unable to update the order status.');
     })
     .finally(() => {
       setUpdatingId(null);

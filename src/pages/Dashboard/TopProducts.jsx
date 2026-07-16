@@ -25,19 +25,19 @@ export default function TopProducts() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow-md">
+      <div className="bg-white dark:bg-gray-800 dark:text-white rounded-2xl p-6 shadow-md">
         Loading...
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-md">
-      <h2 className="text-cyan-400 text-sm tracking-[5px] uppercase">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md">
+      <h2 className="text-cyan-400 dark:text-cyan-300 text-sm tracking-[5px] uppercase">
         Top Products
       </h2>
 
-      <h1 className="text-2xl font-semibold text-gray-800 mt-2 mb-6">
+      <h1 className="text-2xl font-semibold text-gray-800 dark:text-white mt-2 mb-6">
         Best Sellers
       </h1>
 
@@ -45,7 +45,7 @@ export default function TopProducts() {
         {products.slice(0, 5).map((product) => (
           <div
             key={product._id}
-            className="flex items-center justify-between bg-gray-50 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+            className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
           >
             <div className="flex items-center gap-4">
               <img
@@ -55,17 +55,17 @@ export default function TopProducts() {
               />
 
               <div>
-                <h3 className="font-semibold text-gray-800">
+                <h3 className="font-semibold text-gray-800 dark:text-white">
                   {product.name}
                 </h3>
 
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
                   ${product.price}
                 </p>
               </div>
             </div>
 
-            <span className="text-cyan-500 font-semibold">
+            <span className="text-cyan-500 dark:text-cyan-400 font-semibold">
               Stock: {product.stock}
             </span>
           </div>

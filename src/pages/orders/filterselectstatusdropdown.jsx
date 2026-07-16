@@ -19,7 +19,7 @@ export function FilterSelect({ value, onChange, label, options }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 pl-4 pr-3 py-2.5 rounded-2xl shadow-soft bg-white text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-koda-teal/40 capitalize"
+        className="flex items-center gap-2 pl-4 pr-3 py-2.5 rounded-2xl shadow-soft bg-white dark:bg-slate-800 text-sm font-medium text-slate-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-koda-teal/40 capitalize"
       >
         {display}
         <ChevronDown className={`w-4 h-4 text-koda-muted transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -28,12 +28,12 @@ export function FilterSelect({ value, onChange, label, options }) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute z-50 mt-2 w-40 bg-white rounded-2xl shadow-soft py-1 overflow-hidden">
+          <div className="absolute z-50 mt-2 w-40 bg-white dark:bg-slate-800 rounded-2xl shadow-soft py-1 overflow-hidden">
             <button
               type="button"
               onClick={() => handleSelect('all')}
-              className={`w-full text-left px-3.5 py-2 text-sm capitalize transition-colors hover:bg-slate-50 ${
-                value === 'all' ? 'bg-slate-50 font-semibold text-slate-900' : 'text-slate-600'
+              className={`w-full text-left px-3.5 py-2 text-sm capitalize transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                value === 'all' ? 'bg-slate-50 dark:bg-slate-700 font-semibold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'
               }`}
             >
               {label}
@@ -43,8 +43,8 @@ export function FilterSelect({ value, onChange, label, options }) {
                 key={opt}
                 type="button"
                 onClick={() => handleSelect(opt)}
-                className={`w-full text-left px-3.5 py-2 text-sm capitalize transition-colors hover:bg-slate-50 ${
-                  opt === value ? 'bg-slate-50 font-semibold text-slate-900' : 'text-slate-600'
+                className={`w-full text-left px-3.5 py-2 text-sm capitalize transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                  opt === value ? 'bg-slate-50 dark:bg-slate-700 font-semibold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
                 {opt}
@@ -57,7 +57,7 @@ export function FilterSelect({ value, onChange, label, options }) {
   )
 }
 
-// كومبوننت مساعد: دروب داون حالة الطلب
+
 export function StatusDropdown({ order, onChange, disabled }) {
   const [open, setOpen] = useState(false)
 
@@ -85,14 +85,14 @@ export function StatusDropdown({ order, onChange, disabled }) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute z-50 mt-2 w-40 bg-white rounded-2xl shadow-soft py-1 overflow-hidden">
+          <div className="absolute z-50 mt-2 w-40 bg-white dark:bg-slate-800 rounded-2xl shadow-soft py-1 overflow-hidden">
             {STATUS_OPTIONS.map((opt) => (
               <button
                 key={opt}
                 type="button"
                 onClick={() => handleSelect(opt)}
-                className={`w-full text-left px-3.5 py-2 text-sm capitalize transition-colors hover:bg-slate-50 ${
-                  opt === order.status ? 'bg-slate-50 font-semibold text-slate-900' : 'text-slate-600'
+                className={`w-full text-left px-3.5 py-2 text-sm capitalize transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                  opt === order.status ? 'bg-slate-50 dark:bg-slate-700 font-semibold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
                 {opt}
